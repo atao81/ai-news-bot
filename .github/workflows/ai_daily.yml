@@ -1,0 +1,77 @@
+name: AI动向早晚报
+
+on:
+  schedule:
+    # 早报：每天 UTC 1:00（北京时间 9:00）
+    - cron: '0 1 * * *'
+    # 晚报：每天 UTC 13:00（北京时间 21:00）
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'morning 或 evening'
+        required: false
+        default: 'auto'
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests feedparser -q
+
+      - name: Determine mode
+        id: mode
+        run: |
+          if [[ "${{ github.event.inputs.mode }}" == "morning" ]]; then
+            echo "flag=--morning" >> $GITHUB_OUTPUT
+            echo "period=早报" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event.inputs.mode }}" == "evening" ]]; then
+            echo "flag=--evening" >> $GITHUB_OUTPUT
+            echo "period=晚报" >> $GITHUB_OUTPUT
+          else
+            # 根据触发时间自动判断
+            HOUR=$(date -u +%H)
+            if [ "$HOUR" -lt 14 ]; then
+              echo "flag=--morning" >> $GITHUB_OUTPUT
+              echo "period=早报" >> $GITHUB_OUTPUT
+            else
+              echo "flag=--evening" >> $GITHUB_OUTPUT
+              echo "period=晚报" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Fetch AI News
+        env:
+          SCT_KEY: ${{ secrets.SCT_KEY }}
+        run: |
+          python3 scripts/fetch_ai_news.py ${{ steps.mode.outputs.flag }} > report.md 2>&1
+          cat report.md
+
+      - name: Save report to archive
+        run: |
+          DATE=$(date -u +%Y%m%d)
+          PERIOD="${{ steps.mode.outputs.period }}"
+          mkdir -p archive
+          # 提取报告内容（=== REPORT === 之后的部分）
+          sed -n '/^=== REPORT ===$/,$ p' report.md | tail -n +2 > "archive/${DATE}_${PERIOD}.md"
+          
+      - name: Commit archive
+        run: |
+          git config user.name "AI-News-Bot"
+          git config user.email "bot@ai-news.local"
+          git add archive/ 2>/dev/null || true
+          git diff --staged --quiet || git commit -m "📰 AI动向${{ steps.mode.outputs.period }} $(date -u +%Y-%m-%d)"
+          git push
