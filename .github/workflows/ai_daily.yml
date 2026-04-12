@@ -1,0 +1,39 @@
+name: AI动向早晚报
+
+on:
+  schedule:
+    # 北京时间 09:00 = UTC 01:00
+    # 北京时间 21:00 = UTC 13:00
+    - cron: "0 1,13 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "模式"
+        required: true
+        default: "auto"
+
+jobs:
+  fetch-and-send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run AI News Bot
+        env:
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_PASS: ${{ secrets.MAIL_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          MAIL_SMTP: ${{ secrets.MAIL_SMTP }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT }}
+        run: python3 scripts/fetch_ai_news.py --morning
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-report
+          path: latest_report.md
