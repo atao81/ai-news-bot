@@ -19,7 +19,7 @@ permissions:
 jobs:
   fetch-and-push:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,7 +42,6 @@ jobs:
             echo "flag=--evening" >> $GITHUB_OUTPUT
             echo "period=晚报" >> $GITHUB_OUTPUT
           else
-            # 根据触发时间自动判断
             HOUR=$(date -u +%H)
             if [ "$HOUR" -lt 14 ]; then
               echo "flag=--morning" >> $GITHUB_OUTPUT
@@ -53,21 +52,25 @@ jobs:
             fi
           fi
 
-      - name: Fetch AI News
+      - name: Fetch AI News & Send Email
         env:
-          SCT_KEY: ${{ secrets.SCT_KEY }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_PASS: ${{ secrets.MAIL_PASS }}
+          MAIL_SMTP: ${{ secrets.MAIL_SMTP }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT }}
         run: |
-          python3 scripts/fetch_ai_news.py ${{ steps.mode.outputs.flag }} > report.md 2>&1
-          cat report.md
+          python3 scripts/fetch_ai_news.py ${{ steps.mode.outputs.flag }}
 
       - name: Save report to archive
         run: |
           DATE=$(date -u +%Y%m%d)
           PERIOD="${{ steps.mode.outputs.period }}"
           mkdir -p archive
-          # 提取报告内容（=== REPORT === 之后的部分）
-          sed -n '/^=== REPORT ===$/,$ p' report.md | tail -n +2 > "archive/${DATE}_${PERIOD}.md"
-          
+          if [ -f latest_report.md ]; then
+            cp latest_report.md "archive/${DATE}_${PERIOD}.md"
+          fi
+
       - name: Commit archive
         run: |
           git config user.name "AI-News-Bot"
