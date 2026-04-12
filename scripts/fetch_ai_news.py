@@ -15,6 +15,7 @@ import sys
 import email.mime.text
 import email.mime.multipart
 import email.header
+from email.utils import formataddr
 from datetime import datetime, timezone, timedelta
 
 # ============ 配置 ============
@@ -195,7 +196,7 @@ def push_email_smtp(content, subject="AI动向", to_email=None):
         # 构建邮件
         msg = email.mime.multipart.MIMEMultipart("alternative")
         msg["Subject"] = email.header.Header(subject, "utf-8")
-        msg["From"] = email.header.Header(f"AI News Bot <{smtp_user}>", "utf-8")
+        msg["From"] = formataddr(("AI News Bot", smtp_user), "utf-8")
         msg["To"] = to_addr
 
         # 纯文本版本（兼容所有邮件客户端）

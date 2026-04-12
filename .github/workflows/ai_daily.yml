@@ -1,39 +1,80 @@
-name: AI动向早晚报
+name: AI动向新闻机器人
 
 on:
   schedule:
-    # 北京时间 09:00 = UTC 01:00
-    # 北京时间 21:00 = UTC 13:00
-    - cron: "0 1,13 * * *"
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: "模式"
-        required: true
-        default: "auto"
+    # 每天 09:00 发早报 (UTC+8 = 01:00 UTC)
+    - cron: "0 1 * * *"
+  workflow_dispatch:  # 手动触发
 
 jobs:
-  fetch-and-send:
+  morning:
+    name: 早报 09:00
     runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: 设置 Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      - name: Run AI News Bot
+      - name: 安装依赖
+        run: pip install requests beautifulsoup4
+
+      - name: 发送早报
         env:
-          MAIL_FROM: ${{ secrets.MAIL_FROM }}
-          MAIL_PASS: ${{ secrets.MAIL_PASS }}
-          MAIL_TO: ${{ secrets.MAIL_TO }}
-          MAIL_SMTP: ${{ secrets.MAIL_SMTP }}
-          MAIL_PORT: ${{ secrets.MAIL_PORT }}
-        run: python3 scripts/fetch_ai_news.py --morning
+          EMAIL_SENDER: 77193799@qq.com
+          EMAIL_RECEIVER: 77193799@qq.com
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          SMTP_HOST: smtp.qq.com
+          SMTP_PORT: 587
+        run: python scripts/fetch_ai_news.py --morning
 
-      - name: Upload report
-        uses: actions/upload-artifact@v4
+  evening:
+    name: 晚报 21:00
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
         with:
-          name: latest-report
-          path: latest_report.md
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install requests beautifulsoup4
+
+      - name: 发送晚报
+        env:
+          EMAIL_SENDER: 77193799@qq.com
+          EMAIL_RECEIVER: 77193799@qq.com
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          SMTP_HOST: smtp.qq.com
+          SMTP_PORT: 587
+        run: python scripts/fetch_ai_news.py --evening
+
+  manual:
+    name: 手动测试
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: pip install requests beautifulsoup4
+
+      - name: 手动测试运行
+        env:
+          EMAIL_SENDER: 77193799@qq.com
+          EMAIL_RECEIVER: 77193799@qq.com
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          SMTP_HOST: smtp.qq.com
+          SMTP_PORT: 587
+        run: python scripts/fetch_ai_news.py --morning --evening

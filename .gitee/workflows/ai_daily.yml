@@ -1,45 +1,53 @@
-giteeci:
-  push:
-    branches: [master]
-  # 定时: UTC 01:00=北京时间09:00, UTC 13:00=北京时间21:00
-  trigger_timer:
-    - cron: "0 1,13 * * *"
+# Gitee Go 流水线 - AI动向晚报
+# 每天 09:00 早报 + 21:00 晚报，云端自动运行
 
-FetchNews:
-  stage: build
-  script:
-    - cd $CI_WORKSPACE
-    - python3 --version
-    - python3 scripts/fetch_ai_news.py --morning
-  artifacts:
-    paths:
-      - latest_report.md
+显示名称: AI动向新闻机器人
 
-SendMail:
-  stage: deploy
-  needs: [FetchNews]
-  script:
-    - cd $CI_WORKSPACE
-    - python3 << MAILSCRIPT
-import smtplib, os
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+阶段:
+  - name: 早报
+    trigger: 定时
+    cron: "0 9 * * *"
+    tag: latest
+    steps:
+      - name: 拉取最新代码
+        command: |
+          cd /pipelines/workspace/${GITEE_REPO_NAME}
+          git pull origin master
+      - name: 安装依赖
+        command: |
+          cd /pipelines/workspace/${GITEE_REPO_NAME}
+          pip3 install requests beautifulsoup4
+      - name: 发送早报
+        command: |
+          cd /pipelines/workspace/${GITEE_REPO_NAME}
+          python3 scripts/fetch_ai_news.py --morning
+        env:
+          EMAIL_SENDER: "77193799@qq.com"
+          EMAIL_RECEIVER: "77193799@qq.com"
+          EMAIL_PASSWORD: "${EMAIL_PASSWORD}"
+          SMTP_HOST: "smtp.qq.com"
+          SMTP_PORT: "587"
 
-body = open("latest_report.md").read() if os.path.exists("latest_report.md") else "无报告内容"
-
-msg = MIMEMultipart('alternative')
-msg['Subject'] = '📮 AI动向晚报'
-msg['From'] = os.environ['MAIL_FROM']
-msg['To'] = os.environ['MAIL_TO']
-msg.attach(MIMEText(body, 'plain', 'utf-8'))
-
-try:
-    with smtplib.SMTP(os.environ.get('MAIL_SMTP','smtp.qq.com'), 
-                      int(os.environ.get('MAIL_PORT','587'))) as s:
-        s.starttls()
-        s.login(os.environ['MAIL_FROM'], os.environ['MAIL_PASS'])
-        s.sendmail(os.environ['MAIL_FROM'], [os.environ['MAIL_TO']], msg.as_string())
-        print('✅ 邮件发送成功')
-except Exception as e:
-    print(f'❌ 发送失败: {e}')
-MAILSCRIPT
+  - name: 晚报
+    trigger: 定时
+    cron: "0 21 * * *"
+    tag: latest
+    steps:
+      - name: 拉取最新代码
+        command: |
+          cd /pipelines/workspace/${GITEE_REPO_NAME}
+          git pull origin master
+      - name: 安装依赖
+        command: |
+          cd /pipelines/workspace/${GITEE_REPO_NAME}
+          pip3 install requests beautifulsoup4
+      - name: 发送晚报
+        command: |
+          cd /pipelines/workspace/${GITEE_REPO_NAME}
+          python3 scripts/fetch_ai_news.py --evening
+        env:
+          EMAIL_SENDER: "77193799@qq.com"
+          EMAIL_RECEIVER: "77193799@qq.com"
+          EMAIL_PASSWORD: "${EMAIL_PASSWORD}"
+          SMTP_HOST: "smtp.qq.com"
+          SMTP_PORT: "587"
